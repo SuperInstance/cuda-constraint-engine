@@ -1,0 +1,8 @@
+# Build artifacts
+*.o
+*.so
+examples/quickstart
+examples/batch_check
+examples/stream_pipeline
+examples/hot_swap
+examples/eisenstein_narrows
