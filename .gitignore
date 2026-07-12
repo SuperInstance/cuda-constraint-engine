@@ -1,8 +1,29 @@
 # Build artifacts
 *.o
 *.so
+*.a
+*.dylib
+
+# Example binaries
 examples/quickstart
 examples/batch_check
 examples/stream_pipeline
 examples/hot_swap
 examples/eisenstein_narrows
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
