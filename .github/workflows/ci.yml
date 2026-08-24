@@ -1,3 +1,25 @@
+# CI honesty note (see also PR/commit history):
+#
+# This workflow used to swallow the result of every CUDA build step —
+# `make lib || echo "...syntax check only"` and
+# `nvcc -fsyntax-only ... 2>/dev/null || true` — so a compile failure could
+# never fail the job. A green check here has, historically, proven nothing:
+# nobody — including this repo's own CI — had ever confirmed that the CUDA
+# sources actually compile.
+#
+# A step that cannot fail is decoration, not verification, and a green tick
+# that proves nothing is worse than no tick at all, because it is actively
+# misleading. The suppression is removed below. `nvcc` can fully compile and
+# link this project inside the `nvidia/cuda` devel container with no physical
+# GPU present — compilation does not touch a device, only *executing* a
+# kernel does — so there is no excuse for not gating on it.
+#
+# What is intentionally NOT here: there is no GPU-backed runner available to
+# this workflow, so no step actually launches a kernel or runs the compiled
+# examples against a device. Rather than fake that with another suppressed
+# step, execution is simply left out. If a GPU runner is ever added, add a
+# real (non-suppressed) execution step here — do not simulate one.
+
 name: CI
 
 on:
@@ -17,11 +39,21 @@ jobs:
       - run: pip install numpy
       - run: python tests/test_engine.py -v
 
-  compile-check:
+  # Compiles the CUDA library and examples for real. This needs the CUDA
+  # toolchain (nvcc + headers + cudart), which the container image provides;
+  # it does NOT need a GPU. If `make` fails here, the build is broken and the
+  # job is now allowed to say so.
+  compile:
     runs-on: ubuntu-latest
     container: nvidia/cuda:12.6.2-devel-ubuntu24.04
     steps:
       - uses: actions/checkout@v4
-      - run: nvcc --version
-      - run: make lib || echo "CUDA compilation requires GPU runtime — syntax check only"
-      - run: nvcc -O0 -fsyntax-only -I include src/constraint_engine.cu 2>/dev/null || true
+      - name: Show nvcc version
+        run: nvcc --version
+      - name: Build shared library (must succeed — no suppression)
+        run: make lib
+      - name: Build example binaries (must succeed — no suppression)
+        run: make examples
+      # No execution step: running the resulting binaries/kernels requires a
+      # physical GPU, which this runner does not have. That is skipped
+      # outright rather than run-and-ignore the result.
