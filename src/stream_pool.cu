@@ -11,7 +11,19 @@
 #include <cstring>
 #include <vector>
 
-struct CEStream {
+/* Private to this file, and deliberately NOT named CEStream.
+ *
+ * `CEStream` is the public opaque handle: constraint_engine.h declares
+ * `typedef struct CEStream CEStream;` and never defines it, and the handle a
+ * caller actually receives from ce_stream_create() is a CEStream_internal,
+ * which has three members. Giving that same tag a second, four-member
+ * definition here meant the public type had two different layouts in one
+ * program -- and the extra `in_use` sits at an offset past the end of what
+ * ce_stream_create() allocates, so any crossing access reads out of bounds.
+ *
+ * Nothing crosses today. The types were kept apart by accident rather than by
+ * design, which is the kind of thing that stops being true quietly. */
+struct CEPooledStream {
     CEEngine* engine;
     cudaStream_t stream;
     CEResult* pending_result;
@@ -19,7 +31,7 @@ struct CEStream {
 };
 
 struct CEStreamPool {
-    std::vector<CEStream*> streams;
+    std::vector<CEPooledStream*> streams;
     int next_free;
 };
 
@@ -32,7 +44,7 @@ void* ce_stream_pool_create(int count) {
     pool->next_free = 0;
     pool->streams.reserve(count);
     for (int i = 0; i < count; i++) {
-        CEStream* s = new CEStream();
+        CEPooledStream* s = new CEPooledStream();
         s->stream = nullptr;
         s->pending_result = nullptr;
         s->in_use = false;
